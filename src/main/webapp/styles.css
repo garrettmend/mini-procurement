@@ -1,0 +1,222 @@
+/* =====================================================================================
+   styles.css: the look of both pages (requisition.html and requisitions.jsp)
+
+   HOW CSS WORKS
+   Each rule is:   selector { property: value; }
+   The selector picks which elements the rule applies to:
+     body, table, td     an ELEMENT (tag) name: every element of that type
+     .page-link          a CLASS: every element with class="page-link"
+     #message            an ID: the one element with id="message"
+     input, select       a comma means "either": every input AND every select
+     td button           a space means "inside": buttons that are inside a td
+     button:hover        a PSEUDO-CLASS: buttons only while the mouse is over them
+
+   WHEN RULES CONFLICT
+   If two rules set the same property on the same element, the more SPECIFIC selector
+   wins: an id beats a class, and a class beats an element name. More parts also add up,
+   so "td button" beats plain "button". If they're equally specific, the rule that comes
+   LATER in the file wins. This is the "cascade" in Cascading Style Sheets.
+
+   UNITS AND COLORS
+     px     pixels, a fixed size
+     rem    relative to the browser's base font size (usually 16px), so 0.875rem = 14px.
+            Text sized in rem grows if the user increases their browser's font size.
+     #2b6cb0   a hex color: two digits each for red, green and blue
+   ===================================================================================== */
+
+
+/* ---------- Whole page ---------- */
+
+/* THE BOX MODEL: every element is a box made of content, then padding, then border,
+   then margin, from the inside out. By default, "width" sets only the CONTENT's width,
+   and padding and border are added on top, so a width:100% input with padding would
+   stick out past its container.
+   border-box makes width include the padding and border. The * selector means
+   "every element". */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: Arial, Helvetica, sans-serif;   /* the first font that's installed wins */
+  color: #222;                                 /* text color: #222 is short for #222222 */
+  background: #f4f6f8;                         /* light gray page background */
+  max-width: 900px;                            /* never wider than 900px... */
+  margin: 0 auto;                              /* ...and centered: 0 top/bottom, auto left/right */
+  padding: 0 16px;                             /* breathing room at the sides on narrow screens */
+}
+
+h1 {
+  color: #1f3b5a;
+  text-align: center;
+}
+
+a {
+  color: #2b6cb0;
+}
+
+/* The navigation links ("View all requisitions", "+ New Requisition") and the result
+   message above the table. A class, so any element can use it. */
+.page-link {
+  text-align: center;
+}
+
+
+/* ---------- Form (requisition.html) ---------- */
+
+/* The form is a white "card" in the middle of the page */
+form {
+  max-width: 400px;
+  margin: 0 auto;              /* auto left/right margins center a block element */
+  padding: 24px;               /* space between the card's edge and its contents */
+  background: #fff;
+  border: 1px solid #d9dee3;   /* width, style, color */
+  border-radius: 8px;          /* rounded corners */
+}
+
+/* Labels are INLINE elements by default, so they'd sit on the same line as their
+   input. display:block makes each one take a full line, above its input.
+   margin: 12px 0 4px means top 12px, left and right 0, bottom 4px. */
+label {
+  display: block;
+  margin: 12px 0 4px;
+  font-weight: bold;
+}
+
+/* Text boxes and the dropdown fill the card's width */
+input,
+select {
+  width: 100%;
+  padding: 8px;
+  border: 1px solid #b8c0c8;
+  border-radius: 4px;
+  font-size: 1rem;
+}
+
+/* :focus = the field that's currently selected for typing. A clear outline shows
+   keyboard users where they are (an accessibility requirement). */
+input:focus,
+select:focus {
+  outline: 2px solid #2b6cb0;
+  border-color: #2b6cb0;
+}
+
+/* All buttons start as the wide blue Submit button. The Approve buttons in the table
+   override part of this further down ("td button"). */
+button {
+  margin-top: 20px;
+  width: 100%;
+  padding: 10px;
+  background: #2b6cb0;
+  color: #fff;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;   /* the hand cursor, so it looks clickable */
+}
+
+/* :hover = while the mouse is over the button: a darker blue */
+button:hover {
+  background: #1f4f85;
+}
+
+/* :disabled = a button with the disabled property set. requisitions-list.js disables
+   an Approve button while its request is in progress. */
+button:disabled {
+  opacity: 0.6;      /* 60% visible, so it looks faded */
+  cursor: default;
+}
+
+
+/* ---------- Form validation (classes added by js/requisition-form.js) ---------- */
+
+/* A field that failed validation gets class="invalid": a red border and outline.
+   "input.invalid" (no space) means an input that HAS the class invalid. These come
+   after input:focus with the same specificity, so they win and the field stays red
+   even while selected. */
+input.invalid,
+select.invalid {
+  border-color: #b42318;
+  outline-color: #b42318;
+}
+
+/* The message the JavaScript inserts under a bad field */
+.error-message {
+  margin-top: 4px;
+  color: #b42318;
+  font-size: 0.875rem;   /* 14px: a bit smaller than normal text */
+}
+
+
+/* ---------- Table (requisitions.jsp) ---------- */
+
+/* border-collapse: neighboring cells share one border line instead of each drawing
+   its own (which would look doubled) */
+table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #fff;
+}
+
+/* th = header cell, td = data cell */
+th,
+td {
+  padding: 10px 12px;                    /* 10px top/bottom, 12px left/right */
+  border-bottom: 1px solid #d9dee3;      /* a thin line between rows */
+  text-align: left;
+}
+
+/* The header row: white text on dark blue */
+th {
+  background: #1f3b5a;
+  color: #fff;
+}
+
+/* Highlight the data row under the mouse. "tbody tr" = rows inside the table body,
+   so the header row isn't highlighted. */
+tbody tr:hover {
+  background: #eef3f8;
+}
+
+/* The Approve buttons. They're buttons, so they got the full-width Submit style above.
+   "td button" (a button inside a td) is more specific than plain "button", so these
+   values replace the ones that make it wide. Properties not listed here (the blue
+   background, white text, rounded corners) still come from the "button" rule. */
+td button {
+  width: auto;          /* only as wide as its text */
+  margin-top: 0;
+  padding: 4px 10px;
+  font-size: 0.875rem;
+}
+
+/* The result message above the table, set by js/requisitions-list.js */
+.msg-ok {
+  color: #1e7b34;      /* green */
+  font-weight: bold;
+}
+
+.msg-error {
+  color: #b42318;      /* red */
+  font-weight: bold;
+}
+
+
+/* ---------- Status colors ---------- */
+
+/* The JSP gives each status cell the lowercase status as a class:
+   <td class="status pending">PENDING</td>. These rules color the text to match.
+   When a requisition is approved, the JavaScript swaps "pending" for "approved". */
+.approved {
+  color: #1e7b34;      /* green */
+  font-weight: bold;
+}
+
+.pending {
+  color: #a86b00;      /* amber */
+  font-weight: bold;
+}
+
+.rejected {
+  color: #b42318;      /* red */
+  font-weight: bold;
+}

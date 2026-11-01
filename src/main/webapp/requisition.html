@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<!--
+  NEW REQUISITION FORM
+  URL: http://localhost:8081/mini-procurement/requisition.html
+
+  This is a plain, static HTML file (not a JSP): Tomcat sends it to the browser as-is,
+  with no Java involved. It lives directly in src/main/webapp, which is the public part
+  of the app, so the browser can request it by name.
+
+  WHAT HAPPENS WHEN YOU CLICK SUBMIT
+    1. js/requisition-form.js checks the fields in the browser. If anything is wrong it
+       shows messages and stops the submit.
+    2. Otherwise the browser sends a POST request to "requisitions" (that is,
+       /mini-procurement/requisitions). The request body holds each field as
+       name=value pairs, for example: requester=J.+Smith&item=Paper&quantity=20&...
+    3. RequisitionServlet.doPost() reads each value with request.getParameter("name"),
+       checks everything again, saves the row, and redirects to the list page.
+
+  NOTE: HTML comments like this one ARE sent to the browser; anyone can read them with
+  View Source. Never put anything secret in them. JSP comments are different: they're
+  removed on the server (see requisitions.jsp).
+-->
+<!-- lang="en" tells browsers and screen readers the page is in English -->
+<html lang="en">
+<head>
+  <!-- UTF-8 lets the page show any character (accents, symbols) correctly -->
+  <meta charset="UTF-8">
+  <!-- The text shown on the browser tab -->
+  <title>New Requisition</title>
+  <!-- A RELATIVE link: the browser loads styles.css from the same folder as this page,
+       which is /mini-procurement/styles.css -->
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <h1>New Requisition</h1>
+
+  <!-- href="requisitions" is relative too: it goes to /mini-procurement/requisitions,
+       which is RequisitionServlet.doGet() (a normal link always sends a GET) -->
+  <p class="page-link"><a href="requisitions">View all requisitions</a></p>
+
+  <!--
+    THE FORM
+      id="requisition-form"   lets the JavaScript find this form: $('#requisition-form')
+      action="requisitions"   WHERE the data is sent: /mini-procurement/requisitions
+      method="post"           HOW it's sent. POST puts the fields in the request body.
+                              GET would put them in the URL (?requester=...&item=...),
+                              where they'd be visible, bookmarkable and saved in history.
+                              Use POST for anything that changes data.
+      novalidate              turns OFF the browser's built-in validation popups, so
+                              js/requisition-form.js can show its own messages instead.
+                              The required/min attributes below stay: they document the
+                              rules, and phones use type="number" to show a number keypad.
+                              The server re-checks everything no matter what.
+  -->
+  <form id="requisition-form" action="requisitions" method="post" novalidate>
+
+    <!--
+      EACH FIELD HAS A LABEL AND AN INPUT
+        label for="requester"   must match the input's id="requester". Clicking the
+                                label then puts the cursor in the input, and screen
+                                readers announce the label when the input is selected.
+        id="requester"          identifies the element in the page (for the label,
+                                CSS and JavaScript). Must be unique on the page.
+        name="requester"        the name the value is SENT under. The servlet reads it
+                                with request.getParameter("requester"). A field with no
+                                name is not sent at all.
+        required                the field can't be empty
+    -->
+    <label for="requester">Requester</label>
+    <input type="text" id="requester" name="requester" required>
+
+    <label for="item">Item</label>
+    <input type="text" id="item" name="item" required>
+
+    <!-- type="number" shows a number keypad on phones and up/down arrows on desktop.
+         min="1": the smallest allowed value. The value still reaches the servlet as
+         TEXT ("20"), which it converts with Integer.parseInt(). -->
+    <label for="quantity">Quantity</label>
+    <input type="number" id="quantity" name="quantity" min="1" required>
+
+    <!-- step="0.01" allows cents: the arrows move by 0.01 and 12.50 counts as valid -->
+    <label for="unit_cost">Unit Cost ($)</label>
+    <input type="number" id="unit_cost" name="unit_cost" min="0" step="0.01" required>
+
+    <!--
+      A DROPDOWN
+      Each option has a VALUE (what's sent: the vendor's ID from the vendors table)
+      and TEXT (what the user sees: the vendor's name). Picking "Augusta Lab
+      Equipment" sends vendor_id=3.
+      The first option has value="" (empty), so if nothing is picked the field is
+      empty and fails the required check.
+      These vendors are typed in by hand. A JSP version of this page could load them
+      from the database (SELECT vendor_id, name FROM vendors).
+    -->
+    <label for="vendor_id">Vendor</label>
+    <select id="vendor_id" name="vendor_id" required>
+      <option value="">-- Select a vendor --</option>
+      <option value="1">Palmetto Office Supply</option>
+      <option value="2">Aiken Industrial Tools</option>
+      <option value="3">Augusta Lab Equipment</option>
+      <option value="4">Carolina Safety Gear</option>
+      <option value="5">Southeast Computer Systems</option>
+      <option value="6">Riverbend Janitorial</option>
+    </select>
+
+    <!-- type="submit": clicking it submits the form it's inside -->
+    <button type="submit">Submit</button>
+  </form>
+
+  <!--
+    SCRIPTS
+    They go at the END of body so the page appears before they download. They run in
+    order, so jQuery must come first: our script uses jQuery's $ function.
+
+    jQuery is loaded from a CDN (content delivery network), a public server that hosts
+    common libraries.
+      integrity="sha256-..."   a fingerprint (hash) of the exact jQuery file. If the CDN
+                               ever served different bytes (hacked or corrupted), the
+                               hash wouldn't match and the browser would refuse to run
+                               it. This is called Subresource Integrity (SRI).
+      crossorigin="anonymous"  needed for the integrity check on a file from another
+                               site; it also means no cookies are sent with the request.
+  -->
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"
+          integrity="sha256-/JqT3SQfawRcv/BIHPThkBvs0OEvtFFmqPF/lYI/Cxo="
+          crossorigin="anonymous"></script>
+  <script src="js/requisition-form.js"></script>
+</body>
+</html>

@@ -1,0 +1,4 @@
+# Files Git should never track.
+# target/ is Maven's build output (compiled classes and the WAR). It's generated from
+# the source every time you run mvn package, so it doesn't belong in version control.
+target/

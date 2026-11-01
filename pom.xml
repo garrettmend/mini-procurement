@@ -1,0 +1,127 @@
+<!--
+  pom.xml: the Maven build file (POM = Project Object Model)
+
+  Maven is the build tool. This file tells it:
+    - what this project is called (its "coordinates")
+    - what kind of file to build (a WAR, for a web app)
+    - which Java version to compile for
+    - which libraries (dependencies) the code needs, which Maven downloads automatically
+      from Maven Central into a cache folder (.m2) in your user folder
+
+  HOW TO BUILD
+    mvn package          compiles the code and creates target\mini-procurement.war
+    mvn clean package    deletes the old target folder first. Use this after DELETING
+                         a file, or the old copy can linger in target and end up in
+                         the WAR.
+  Then copy the WAR into Tomcat's webapps folder to deploy it.
+
+  WHAT'S INSIDE THE WAR (a zip file with a fixed layout)
+    requisition.html, styles.css, js/...    public files, copied from src/main/webapp
+    WEB-INF/classes/com/minipro/*.class     the compiled Java code
+    WEB-INF/lib/*.jar                       the libraries below that aren't "provided"
+    WEB-INF/jsp/requisitions.jsp            private: only reachable through a servlet
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <!-- The POM format version. Always 4.0.0 for Maven 3. -->
+  <modelVersion>4.0.0</modelVersion>
+
+  <!-- COORDINATES: together these uniquely identify a project, the same way the
+       dependencies below are identified.
+         groupId      the organization, written like a reversed domain name
+         artifactId   this project's name
+         version      this project's version -->
+  <groupId>com.minipro</groupId>
+  <artifactId>mini-procurement</artifactId>
+  <version>1.0</version>
+  <!-- war = Web Application aRchive, the package format Tomcat deploys.
+       (A regular library or command-line program would be "jar".) -->
+  <packaging>war</packaging>
+
+  <properties>
+    <!-- Compile for Java 21, the JDK installed on this machine -->
+    <maven.compiler.release>21</maven.compiler.release>
+    <!-- Read source files as UTF-8, so the build is the same on every computer -->
+    <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+  </properties>
+
+  <!--
+    DEPENDENCIES: libraries this code uses.
+
+    SCOPE says when each one is needed:
+      (no scope)   "compile", the default: needed to compile AND to run, so Maven
+                   copies the JAR into WEB-INF/lib inside the WAR
+      provided     needed to compile, but the server already PROVIDES it at runtime,
+                   so it's left OUT of the WAR (Tomcat has it in its own lib folder)
+
+    TRANSITIVE DEPENDENCIES: a library's own dependencies come along automatically.
+    To see the full tree:   mvn dependency:tree
+  -->
+  <dependencies>
+    <!-- The Servlet API: HttpServlet, HttpServletRequest, @WebServlet and so on.
+         "provided" because Tomcat already has it. If the WAR shipped its own copy, it
+         could clash with Tomcat's. -->
+    <dependency>
+      <groupId>jakarta.servlet</groupId>
+      <artifactId>jakarta.servlet-api</artifactId>
+      <version>6.0.0</version>
+      <scope>provided</scope>
+    </dependency>
+
+    <!-- The PostgreSQL JDBC driver: the code that knows how to talk to PostgreSQL.
+         Default scope, so it ships in WEB-INF/lib. Tomcat doesn't include any database
+         drivers. (Db.java loads it with Class.forName.) -->
+    <dependency>
+      <groupId>org.postgresql</groupId>
+      <artifactId>postgresql</artifactId>
+      <version>42.7.14</version>
+    </dependency>
+
+    <!-- JSTL (JSP Standard Tag Library): the c:forEach, c:out and fmt:formatNumber
+         tags used in requisitions.jsp. It comes in two parts:
+           the API              the tag definitions
+           the implementation   the code that runs them (from GlassFish)
+         Tomcat doesn't include JSTL, so both ship in WEB-INF/lib.
+         Version 3.0 matches Tomcat 10.1, which implements Jakarta EE 10. -->
+    <dependency>
+      <groupId>jakarta.servlet.jsp.jstl</groupId>
+      <artifactId>jakarta.servlet.jsp.jstl-api</artifactId>
+      <version>3.0.2</version>
+    </dependency>
+    <dependency>
+      <groupId>org.glassfish.web</groupId>
+      <artifactId>jakarta.servlet.jsp.jstl</artifactId>
+      <version>3.0.1</version>
+    </dependency>
+
+    <!-- The EL (Expression Language) API: what evaluates ${...} in JSPs.
+         We don't use it directly. The JSTL API above pulls it in as a TRANSITIVE
+         dependency, which would put a copy in WEB-INF/lib. Tomcat already has its own
+         copy, and two copies of the same classes can cause class conflicts.
+         Declaring it ourselves as "provided" overrides the transitive one: a dependency
+         you declare directly always wins over one pulled in indirectly. -->
+    <dependency>
+      <groupId>jakarta.el</groupId>
+      <artifactId>jakarta.el-api</artifactId>
+      <version>5.0.0</version>
+      <scope>provided</scope>
+    </dependency>
+  </dependencies>
+
+  <build>
+    <!-- The WAR's file name: target/mini-procurement.war instead of the default
+         mini-procurement-1.0.war. Tomcat uses the WAR's name as the app's URL path
+         (the "context path"), so this keeps the URL http://localhost:8081/mini-procurement -->
+    <finalName>mini-procurement</finalName>
+    <plugins>
+      <!-- The plugin that builds the WAR. Pinning its version means the build works
+           the same way every time, instead of depending on Maven's built-in default. -->
+      <plugin>
+        <groupId>org.apache.maven.plugins</groupId>
+        <artifactId>maven-war-plugin</artifactId>
+        <version>3.4.0</version>
+      </plugin>
+    </plugins>
+  </build>
+</project>

@@ -1,0 +1,6 @@
+# Files Docker should leave out when it sends the project to the build.
+# target/ is rebuilt inside the Dockerfile, and .git isn't needed to build the app.
+target/
+.git/
+.vscode/
+.idea/

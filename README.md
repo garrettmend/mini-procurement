@@ -2,7 +2,7 @@
 
 A small Java web app that follows a procure-to-pay flow: someone submits a **requisition**, someone **approves** it, and approval creates a **purchase order**.
 
-It's built with plain servlets, JSP/JSTL, JDBC and jQuery, with no framework, so every step from the HTML form to the SQL is visible. Every source file has detailed comments for learners. [STUDY-GUIDE.md](STUDY-GUIDE.md) shows where each concept appears in the code.
+It's built with plain servlets, JSP/JSTL, JDBC and jQuery, with no framework, so every step from the HTML form to the SQL is visible. Every source file has detailed comments for learners.
 
 ## Features
 
@@ -58,26 +58,17 @@ All paths are under the context path `/mini-procurement`.
 
 ### 1. Create the database
 
-Create a database named `procurement` with these tables. The columns listed are the ones the app reads and writes.
+Create a database named `procurement`, then run the two scripts in [db/](db/) on it as the owner (for example `postgres`):
 
-| Table | Columns |
-|---|---|
-| `vendors` | `vendor_id` (primary key), `name VARCHAR(100)` |
-| `requisitions` | `req_id SERIAL` (primary key), `requester VARCHAR(100)`, `item VARCHAR(200)`, `quantity INT CHECK (quantity > 0)`, `unit_cost NUMERIC(10,2)`, `vendor_id` (foreign key to `vendors`), `status VARCHAR(10) DEFAULT 'PENDING'`, `created_on DATE DEFAULT CURRENT_DATE` |
-| `purchase_orders` | `po_id SERIAL` (primary key), `req_id` (foreign key to `requisitions`), `total NUMERIC` |
+```sh
+psql -U postgres -c "CREATE DATABASE procurement"
+psql -U postgres -d procurement -f db/schema.sql -f db/seed.sql
+```
 
-> **Note:** the `CREATE TABLE` script isn't in this repo yet.
+- [schema.sql](db/schema.sql) creates the `vendors`, `requisitions` and `purchase_orders` tables.
+- [seed.sql](db/seed.sql) adds vendors 1 to 6 (the IDs the form's dropdown is hard-coded with) and six sample requisitions.
 
-The vendor dropdown in [requisition.html](src/main/webapp/requisition.html) is hard-coded with vendor IDs 1 to 6, so add vendors with those IDs:
-
-| `vendor_id` | `name` |
-|---|---|
-| 1 | Palmetto Office Supply |
-| 2 | Aiken Industrial Tools |
-| 3 | Augusta Lab Equipment |
-| 4 | Carolina Safety Gear |
-| 5 | Southeast Computer Systems |
-| 6 | Riverbend Janitorial |
+Both scripts are safe to run again: they skip tables and rows that already exist.
 
 ### 2. Create the app's database user
 
@@ -118,12 +109,48 @@ This produces `target/mini-procurement.war`. Copy it into Tomcat's `webapps` fol
 
 Use your Tomcat port if it isn't 8080 (it's set in `conf/server.xml`). If something fails with a 500 error, the stack trace is in Tomcat's `logs/localhost.<date>.log`.
 
+## Deploying to Railway
+
+The [Dockerfile](Dockerfile) builds the WAR with Maven, then runs it in the official `tomcat:10.1-jdk21` image as `ROOT.war`, so the app is served at `/` instead of `/mini-procurement`. Tomcat listens on Railway's `PORT` variable (8080 if it isn't set).
+
+1. **Create the services.** In a new Railway project, choose **Deploy from GitHub repo** and pick this repo. Railway finds the Dockerfile and builds it. Then add **+ New → Database → PostgreSQL**.
+
+2. **Create the database and tables.** Copy `DATABASE_PUBLIC_URL` from the Postgres service's **Variables** tab. It ends in `/railway`, the default database. Create `procurement` beside it, then run the scripts against a copy of the URL ending in `/procurement`:
+
+   ```sh
+   psql "postgresql://postgres:...@....proxy.rlwy.net:12345/railway" -c "CREATE DATABASE procurement"
+   psql "postgresql://postgres:...@....proxy.rlwy.net:12345/procurement" -f db/schema.sql -f db/seed.sql
+   ```
+
+3. **Create the app's database user.** Open psql on the `procurement` URL, run the script, then set a real password straight away (`\password` asks for it, so it isn't saved in the file or your shell history):
+
+   ```
+   procurement=# \i db/create-app-user.sql
+   procurement=# \password minipro_app
+   ```
+
+4. **Set the app's variables.** On the app service's **Variables** tab. `${{Postgres.PGHOST}}` is a Railway reference to the database's private address, so the app reaches it over Railway's internal network:
+
+   | Variable | Value |
+   |---|---|
+   | `DB_URL` | `jdbc:postgresql://${{Postgres.PGHOST}}:${{Postgres.PGPORT}}/procurement` |
+   | `DB_USER` | `minipro_app` |
+   | `DB_PASSWORD` | the password you set in step 3 |
+   | `PORT` | `8080` |
+
+5. **Make it public.** Under the app service's **Settings → Networking**, click **Generate Domain** and use port 8080. The site's root URL redirects to the requisitions list.
+
+To check the image on your machine first: `docker build -t mini-procurement .`, then `docker run -p 8080:8080 -e DB_URL=... -e DB_USER=... -e DB_PASSWORD=... mini-procurement`. From inside the container, the host's PostgreSQL is `host.docker.internal`, not `localhost`.
+
 ## Project structure
 
 ```
 mini-procurement/
 ├── pom.xml                              Maven build: dependencies and WAR packaging
+├── Dockerfile                           Builds the WAR and runs it in Tomcat (used by Railway)
 ├── db/
+│   ├── schema.sql                       Creates the tables
+│   ├── seed.sql                         Vendors and sample requisitions
 │   └── create-app-user.sql              Least-privilege database user
 ├── src/main/java/com/minipro/
 │   ├── RequisitionServlet.java          GET: list page. POST: create a requisition.
@@ -131,20 +158,19 @@ mini-procurement/
 │   ├── RequisitionDao.java              All the SQL, including the approval transaction
 │   ├── Requisition.java                 The model (a JavaBean)
 │   └── Db.java                          Opens JDBC connections from environment variables
-├── src/main/webapp/
-│   ├── requisition.html                 New requisition form
-│   ├── styles.css
-│   ├── js/
-│   │   ├── requisition-form.js          Client-side form validation
-│   │   └── requisitions-list.js         Approve button (AJAX)
-│   └── WEB-INF/jsp/
-│       └── requisitions.jsp             List page; private, only reachable through the servlet
-└── STUDY-GUIDE.md                       Where each Java/web concept appears in the code
+└── src/main/webapp/
+    ├── index.jsp                        Home page: redirects to the requisitions list
+    ├── requisition.html                 New requisition form
+    ├── styles.css
+    ├── js/
+    │   ├── requisition-form.js          Client-side form validation
+    │   └── requisitions-list.js         Approve button (AJAX)
+    └── WEB-INF/jsp/
+        └── requisitions.jsp             List page; private, only reachable through the servlet
 ```
 
 ## Known limitations
 
-- **No database schema script.** The tables have to be created by hand (see [step 1](#1-create-the-database)).
 - **Vendors are hard-coded** in the form instead of loaded from the `vendors` table.
 - **No Reject action.** Requisitions can only be approved.
 - **No connection pooling.** `Db` opens a new connection per request with `DriverManager`. A production app would use a pooled JNDI `DataSource`.

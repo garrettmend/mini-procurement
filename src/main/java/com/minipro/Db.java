@@ -1,5 +1,6 @@
 package com.minipro;
 
+import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -24,6 +25,13 @@ import java.sql.SQLException;
  *
  * setenv.bat lives in Tomcat's folder, outside this project, so the password never
  * ends up in Git. Interview point: keep secrets (passwords, API keys) out of source code.
+ *
+ * On Railway (and most hosting platforms) the database comes as ONE variable instead,
+ * DATABASE_URL, with the user name and password inside it:
+ *
+ *   DATABASE_URL=postgresql://postgres:secret@postgres.railway.internal:5432/railway
+ *
+ * If DB_URL isn't set, getConnection() splits DATABASE_URL into the three settings.
  *
  * REAL-WORLD NOTE
  * This opens a brand-new connection every time, which is slow: each one means a
@@ -72,10 +80,35 @@ public final class Db {   // final: no other class can extend (inherit from) thi
      * Examples: the database isn't running, or "password authentication failed".
      */
     public static Connection getConnection() throws SQLException {
+        // No DB_URL but a DATABASE_URL (Railway): connect with that instead.
+        String databaseUrl = System.getenv("DATABASE_URL");
+        if (isMissing(System.getenv("DB_URL")) && !isMissing(databaseUrl)) {
+            return connectWithDatabaseUrl(databaseUrl);
+        }
+
         // DriverManager looks through its registered drivers for one that understands
         // URLs starting with "jdbc:postgresql:", then asks it to log in with this user
         // name and password. The result is an open connection to the database.
         return DriverManager.getConnection(env("DB_URL"), env("DB_USER"), env("DB_PASSWORD"));
+    }
+
+    // Connects using a URL like postgresql://user:password@host:5432/dbname.
+    //
+    // The JDBC driver can't read a user name and password from inside the URL, so
+    // java.net.URI splits it into its parts, and we rebuild it the way JDBC wants it:
+    //   jdbc:postgresql://host:5432/dbname   plus the user name and password separately
+    private static Connection connectWithDatabaseUrl(String databaseUrl) throws SQLException {
+        URI uri = URI.create(databaseUrl);
+        String userInfo = uri.getUserInfo();   // "user:password", with any %XX escapes decoded
+        if (userInfo == null || !userInfo.contains(":")) {
+            // Never put the URL itself in the message: it contains the password.
+            throw new IllegalStateException("DATABASE_URL must look like postgresql://user:password@host:port/dbname");
+        }
+        int colon = userInfo.indexOf(':');     // the first colon: user names can't contain one
+        int port = uri.getPort() == -1 ? 5432 : uri.getPort();   // -1 means the URL has no port
+        String query = uri.getRawQuery() == null ? "" : "?" + uri.getRawQuery();   // e.g. ?sslmode=require
+        String jdbcUrl = "jdbc:postgresql://" + uri.getHost() + ":" + port + uri.getRawPath() + query;
+        return DriverManager.getConnection(jdbcUrl, userInfo.substring(0, colon), userInfo.substring(colon + 1));
     }
 
     // Reads one required setting from the environment.
@@ -84,14 +117,20 @@ public final class Db {   // final: no other class can extend (inherit from) thi
     // setenv.bat was edited, stop right here with a message that says exactly what to
     // fix, instead of failing later with a confusing connection error.
     private static String env(String name) {
-        String value = System.getenv(name);   // returns null if the variable isn't set
-        if (value == null || value.isEmpty()) {
+        String value = System.getenv(name);
+        if (isMissing(value)) {
             // IllegalStateException is an UNCHECKED exception (a subclass of
             // RuntimeException), so callers aren't forced to catch it. It means
             // "the app is set up wrong", which code can't fix at runtime anyway.
             // Note: "\\" in a Java string is ONE backslash; a single \ starts an escape.
-            throw new IllegalStateException(name + " is not set. Add it to Tomcat's bin\\setenv.bat and restart Tomcat.");
+            throw new IllegalStateException(name + " is not set. Locally, add it to Tomcat's bin\\setenv.bat and restart Tomcat."
+                    + " On Railway, set DATABASE_URL instead.");
         }
         return value;
+    }
+
+    // System.getenv returns null if the variable isn't set at all.
+    private static boolean isMissing(String value) {
+        return value == null || value.isEmpty();
     }
 }

@@ -12,6 +12,8 @@ WORKDIR /app
 COPY pom.xml .
 RUN mvn -B -ntp dependency:go-offline
 COPY src ./src
+# The app runs db/schema.sql and db/seed.sql on an empty database, so they go in the WAR.
+COPY db ./db
 RUN mvn -B -ntp clean package
 
 # STAGE 2, run: the official Tomcat 10.1 image with JDK 21.

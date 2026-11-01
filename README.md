@@ -115,32 +115,22 @@ The [Dockerfile](Dockerfile) builds the WAR with Maven, then runs it in the offi
 
 1. **Create the services.** In a new Railway project, choose **Deploy from GitHub repo** and pick this repo. Railway finds the Dockerfile and builds it. Then add **+ New → Database → PostgreSQL**.
 
-2. **Create the database and tables.** Copy `DATABASE_PUBLIC_URL` from the Postgres service's **Variables** tab. It ends in `/railway`, the default database. Create `procurement` beside it, then run the scripts against a copy of the URL ending in `/procurement`:
-
-   ```sh
-   psql "postgresql://postgres:...@....proxy.rlwy.net:12345/railway" -c "CREATE DATABASE procurement"
-   psql "postgresql://postgres:...@....proxy.rlwy.net:12345/procurement" -f db/schema.sql -f db/seed.sql
-   ```
-
-3. **Create the app's database user.** Open psql on the `procurement` URL, run the script, then set a real password straight away (`\password` asks for it, so it isn't saved in the file or your shell history):
+2. **Set the app's variables.** On the app service's **Variables** tab (not the database's):
 
    ```
-   procurement=# \i db/create-app-user.sql
-   procurement=# \password minipro_app
+   DATABASE_URL=${{Postgres.DATABASE_URL}}
+   PORT=8080
    ```
 
-4. **Set the app's variables.** On the app service's **Variables** tab. `${{Postgres.PGHOST}}` is a Railway reference to the database's private address, so the app reaches it over Railway's internal network:
+   `${{Postgres.DATABASE_URL}}` is a Railway reference: it copies the database's connection URL, which points at its private address, so the app reaches it over Railway's internal network. `Postgres` is the database service's name; change it if yours is named differently.
 
-   | Variable | Value |
-   |---|---|
-   | `DB_URL` | `jdbc:postgresql://${{Postgres.PGHOST}}:${{Postgres.PGPORT}}/procurement` |
-   | `DB_USER` | `minipro_app` |
-   | `DB_PASSWORD` | the password you set in step 3 |
-   | `PORT` | `8080` |
+3. **Make it public.** Under the app service's **Settings → Networking**, click **Generate Domain** and use port 8080. The site's root URL redirects to the requisitions list.
 
-5. **Make it public.** Under the app service's **Settings → Networking**, click **Generate Domain** and use port 8080. The site's root URL redirects to the requisitions list.
+On its first start, the app sees the database is empty and runs [schema.sql](db/schema.sql) and [seed.sql](db/seed.sql) itself ([DbInitializer.java](src/main/java/com/minipro/DbInitializer.java)). The deploy log says `Empty database: created the tables and sample data.` Later starts skip this and leave the data alone.
 
-To check the image on your machine first: `docker build -t mini-procurement .`, then `docker run -p 8080:8080 -e DB_URL=... -e DB_USER=... -e DB_PASSWORD=... mini-procurement`. From inside the container, the host's PostgreSQL is `host.docker.internal`, not `localhost`.
+`DATABASE_URL` logs in as the database owner. To use the least-privilege `minipro_app` user instead, run [create-app-user.sql](db/create-app-user.sql) on the Railway database (connect with its `DATABASE_PUBLIC_URL`, then `\password minipro_app`), and set `DB_URL`, `DB_USER` and `DB_PASSWORD` on the app. Those take priority over `DATABASE_URL`.
+
+To check the image on your machine first: `docker build -t mini-procurement .`, then `docker run -p 8080:8080 -e DATABASE_URL=postgresql://user:password@host:5432/dbname mini-procurement`. From inside the container, the host's PostgreSQL is `host.docker.internal`, not `localhost`.
 
 ## Project structure
 
@@ -157,7 +147,8 @@ mini-procurement/
 │   ├── ApproveRequisitionServlet.java   POST: approve, replies with JSON
 │   ├── RequisitionDao.java              All the SQL, including the approval transaction
 │   ├── Requisition.java                 The model (a JavaBean)
-│   └── Db.java                          Opens JDBC connections from environment variables
+│   ├── Db.java                          Opens JDBC connections from environment variables
+│   └── DbInitializer.java               Creates the tables and sample data on an empty database
 └── src/main/webapp/
     ├── index.jsp                        Home page: redirects to the requisitions list
     ├── requisition.html                 New requisition form

@@ -114,6 +114,19 @@
          mini-procurement-1.0.war. Tomcat uses the WAR's name as the app's URL path
          (the "context path"), so this keeps the URL http://localhost:8081/mini-procurement -->
     <finalName>mini-procurement</finalName>
+    <!-- Copies db/schema.sql and db/seed.sql into the WAR at WEB-INF/classes/db/, so
+         DbInitializer can read them when the app starts. Keeping them in db/ means
+         there's one copy of each script, used both by hand and by the app. -->
+    <resources>
+      <resource>
+        <directory>db</directory>
+        <targetPath>db</targetPath>
+        <includes>
+          <include>schema.sql</include>
+          <include>seed.sql</include>
+        </includes>
+      </resource>
+    </resources>
     <plugins>
       <!-- The plugin that builds the WAR. Pinning its version means the build works
            the same way every time, instead of depending on Maven's built-in default. -->
